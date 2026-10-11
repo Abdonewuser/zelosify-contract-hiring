@@ -138,5 +138,3 @@ A detailed demo walkthrough covering all rubric requirements in under 5 minutes:
 - **2:00 - 3:30**: Hiring Manager Workflow (Candidate evaluation cards, AI scores/recommendations, shortlist/reject actions, virtualization).
 - **3:30 - 4:45**: Automated Vitest Suite (48/48 tests, prompt injection tests, P95 benchmark).
 - **4:45 - 5:00**: Wrap-up.
-
-Link to Demo Video: *[Insert your recorded video link here - Loom / Drive / YouTube Unlisted]*
