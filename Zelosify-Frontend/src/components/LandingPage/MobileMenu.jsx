@@ -45,17 +45,48 @@ const MobileMenu = ({ isMenuOpen, closeMenu }) => {
         </button>
       </div>
 
+      <div className="flex flex-col space-y-4 my-auto">
+        <Link
+          href="/vendor/openings"
+          onClick={closeMenu}
+          className="text-lg font-semibold text-slate-800 hover:text-blue-600 transition-colors px-4 py-2 rounded-lg hover:bg-white/80"
+        >
+          Vendor Portal (Requisitions & S3 Upload)
+        </Link>
+        <Link
+          href="/hiring-manager/openings"
+          onClick={closeMenu}
+          className="text-lg font-semibold text-slate-800 hover:text-indigo-600 transition-colors px-4 py-2 rounded-lg hover:bg-white/80"
+        >
+          Hiring Manager (Autonomous AI Screening)
+        </Link>
+        <Link
+          href="/hiring-manager/openings/op-1"
+          onClick={closeMenu}
+          className="text-lg font-semibold text-slate-800 hover:text-indigo-600 transition-colors px-4 py-2 rounded-lg hover:bg-white/80"
+        >
+          Live AI Evaluation (Opening OP-1)
+        </Link>
+      </div>
+
       <motion.div
         variants={linkVariants}
-        transition={{ delay: 0.4 }}
-        className="mt-auto pt-6 border-t border-gray-300/50 space-y-4"
+        transition={{ delay: 0.2 }}
+        className="mt-auto pt-6 border-t border-slate-200/80 space-y-3"
       >
         <Link
-          href="/login"
-          className="block px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-lg font-medium rounded-xl text-center transition-all duration-300 transform hover:scale-105"
+          href="/vendor/openings"
+          className="block px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl text-center shadow hover:shadow-md transition-all"
           onClick={closeMenu}
         >
-          Sign in
+          Launch Platform
+        </Link>
+        <Link
+          href="/login"
+          className="block px-6 py-3 border border-slate-300 text-slate-700 font-semibold rounded-xl text-center hover:bg-white transition-all"
+          onClick={closeMenu}
+        >
+          Sign In
         </Link>
       </motion.div>
     </motion.div>
