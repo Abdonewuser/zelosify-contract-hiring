@@ -128,7 +128,7 @@ const useAuth = () => {
 
     try {
       // Dispatch signOut and wait for it to complete
-      const result = await dispatch(signOut()).unwrap();
+      const result = await dispatch(signOut());
 
       // Only close the confirmation dialog if not explicitly skipped
       if (!skipConfirmationClose) {
@@ -139,14 +139,16 @@ const useAuth = () => {
       router.push("/user");
       return result;
     } catch (error) {
-      console.error("Logout error:", error);
+      console.warn("Logout error handled gracefully:", error);
+      dispatch(logout());
 
       // Even if there's an error, close the dialog to avoid keeping it open
       if (!skipConfirmationClose) {
         dispatch(closeSignoutConfirmation());
       }
 
-      throw error;
+      router.push("/user");
+      return "/user";
     } finally {
       // Reset local signing out state
       setLocalState((prevState) => ({ ...prevState, isSigningOut: false }));
