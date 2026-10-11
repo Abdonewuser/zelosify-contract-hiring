@@ -63,7 +63,7 @@ export default function UserDashboardlayout({ children }) {
             className="transition-all duration-300"
           />
           <main
-            className={`relative flex-1 justify-between items-center w-full transition-all duration-300 ${
+            className={`relative flex-1 w-full min-h-[calc(100vh-4rem)] overflow-y-auto transition-all duration-300 ${
               isSidebarOpen ? "ml-48" : "ml-20"
             }`}
           >
