@@ -127,14 +127,3 @@ npm install
 npm run dev
 ```
 Frontend runs at `http://localhost:5173`.
-
----
-
-## 🎥 Demo Video Guide (Under 6 Minutes)
-
-A detailed demo walkthrough covering all rubric requirements in under 5 minutes:
-- **0:00 - 0:45**: Architecture, Multi-Tenant Database Schema, and AI Decision Engine Overview.
-- **0:45 - 2:00**: IT Vendor Workflow (Opening catalog, direct S3 upload, tenant isolation verification).
-- **2:00 - 3:30**: Hiring Manager Workflow (Candidate evaluation cards, AI scores/recommendations, shortlist/reject actions, virtualization).
-- **3:30 - 4:45**: Automated Vitest Suite (48/48 tests, prompt injection tests, P95 benchmark).
-- **4:45 - 5:00**: Wrap-up.
