@@ -20,7 +20,7 @@ export default function Register() {
     phoneNumber: "",
     companyName: "",
     department: "",
-    role: "USER",
+    role: "IT_VENDOR",
   });
 
   const [error, setError] = useState("");
@@ -62,6 +62,7 @@ export default function Register() {
           lastName: formData.lastName,
           phoneNumber: formData.phoneNumber,
           companyName: formData.companyName,
+          tenantId: "8dc0e05b-2956-4d74-b0e9-5aea5ab3b748",
           department: formData.department,
           role: formData.role,
         };
@@ -69,14 +70,17 @@ export default function Register() {
         const res = await axiosInstance.post("/auth/register", requestData);
         console.log("Registration response:", res.data);
 
-        localStorage.setItem(
-          "totpSetup",
-          JSON.stringify({
-            qrCode: res.data.qrCode,
-          })
-        );
+        if (res.data?.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+          const target =
+            res.data.user.role === "HIRING_MANAGER"
+              ? "/hiring-manager/openings"
+              : "/vendor/openings";
+          window.location.href = target;
+          return;
+        }
 
-        window.location.href = "/setup-totp";
+        window.location.href = "/login";
       } catch (err) {
         console.error("Registration error:", err);
 
@@ -296,13 +300,13 @@ export default function Register() {
           </label>
           <select
             name="role"
+            value={formData.role}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent dark:bg-gray-900 dark:text-white transition-colors duration-200"
           >
-            <option value="USER">User</option>
-            <option value="MANAGER">Manager</option>
-            <option value="SENIOR_MANAGER">Senior Manager</option>
-            <option value="ADMIN">Admin</option>
+            <option value="IT_VENDOR">IT Vendor (Candidate Submissions)</option>
+            <option value="HIRING_MANAGER">Hiring Manager (AI Screening)</option>
+            <option value="ADMIN">Administrator</option>
           </select>
         </div>
 

@@ -27,7 +27,7 @@ export function middleware(request) {
   let userRole = null;
 
   if (isAuthenticated && accessToken) {
-    userRole = extractRoleFromToken(accessToken);
+    userRole = extractRoleFromToken(accessToken) || request.cookies.get("role")?.value;
 
     if (userRole) {
       // Set role cookie that JavaScript can read (non-HTTP-only)

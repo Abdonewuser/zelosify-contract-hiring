@@ -531,6 +531,96 @@ class DevMockStore {
     profile.updatedAt = new Date();
     return profile;
   }
+
+  private users: Array<{
+    id: string;
+    username: string;
+    email: string;
+    password?: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string;
+    role: "HIRING_MANAGER" | "IT_VENDOR" | "ADMIN";
+    department: string;
+    tenantId: string;
+    companyName: string;
+    provider: "KEYCLOAK" | "LOCAL";
+    totpSecret?: string;
+  }> = [
+    {
+      id: "d3a294eb-7fc4-4251-90aa-a8873d004f16",
+      username: "bruce_wayne",
+      email: "bruce.wayne@waynecorp.com",
+      password: "Password123!",
+      firstName: "Bruce",
+      lastName: "Wayne",
+      phoneNumber: "+15550199",
+      role: "HIRING_MANAGER",
+      department: "Engineering",
+      tenantId: "8dc0e05b-2956-4d74-b0e9-5aea5ab3b748",
+      companyName: "Bruce Wayne Corp",
+      provider: "KEYCLOAK",
+    },
+    {
+      id: "vendor-user-01",
+      username: "vendor_user",
+      email: "vendor@partner.com",
+      password: "Password123!",
+      firstName: "John",
+      lastName: "Vendor",
+      phoneNumber: "+15550188",
+      role: "IT_VENDOR",
+      department: "IT Staffing",
+      tenantId: "vendor-partner-tenant-01",
+      companyName: "Apex Staffing Partners",
+      provider: "KEYCLOAK",
+    },
+    {
+      id: "admin-user-01",
+      username: "admin",
+      email: "admin@zelosify.com",
+      password: "Password123!",
+      firstName: "Admin",
+      lastName: "User",
+      phoneNumber: "+15550100",
+      role: "ADMIN",
+      department: "IT Security",
+      tenantId: "8dc0e05b-2956-4d74-b0e9-5aea5ab3b748",
+      companyName: "Bruce Wayne Corp",
+      provider: "KEYCLOAK",
+    },
+  ];
+
+  public findUser(usernameOrEmail: string) {
+    const q = usernameOrEmail.toLowerCase().trim();
+    return this.users.find(
+      (u) => u.username.toLowerCase() === q || u.email.toLowerCase() === q
+    );
+  }
+
+  public addUser(user: {
+    id: string;
+    username: string;
+    email: string;
+    password?: string;
+    firstName: string;
+    lastName: string;
+    phoneNumber?: string;
+    role: "HIRING_MANAGER" | "IT_VENDOR" | "ADMIN";
+    department: string;
+    tenantId: string;
+    companyName: string;
+    provider: "KEYCLOAK" | "LOCAL";
+    totpSecret?: string;
+  }) {
+    const existing = this.findUser(user.username) || this.findUser(user.email);
+    if (existing) {
+      Object.assign(existing, user);
+      return existing;
+    }
+    this.users.push(user);
+    return user;
+  }
 }
 
 export const devMockStore = new DevMockStore();

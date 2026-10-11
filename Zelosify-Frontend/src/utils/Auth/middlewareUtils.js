@@ -21,7 +21,14 @@ export const extractRoleFromToken = (token) => {
   if (!token) return null;
 
   const decoded = decodeJwt(token);
-  if (!decoded || !decoded.realm_access || !decoded.realm_access.roles) {
+  if (!decoded) return null;
+
+  // Direct role claim
+  if (decoded.role) {
+    return decoded.role;
+  }
+
+  if (!decoded.realm_access || !decoded.realm_access.roles) {
     return null;
   }
 

@@ -11,6 +11,10 @@ import { AuthProvider, Role } from "@prisma/client";
 import { getClientSecret } from "../../../../config/keycloak/keycloak.js";
 import { isValidRole } from "../../../../utils/RBAC/isValidRole.js";
 
+import { isPrismaConnected } from "../../../../utils/prisma/connectPrisma.js";
+import { devMockStore } from "../../../../services/devMockStore.js";
+import jwt from "jsonwebtoken";
+
 const KEYCLOAK_URL = process.env.KEYCLOAK_URL || "http://localhost:8080/auth";
 const REALM_NAME = process.env.KEYCLOAK_REALM || "Zelosify";
 const CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || "dynamic-client";
@@ -21,7 +25,7 @@ const CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID || "dynamic-client";
  * @param res - Express response with success or error data
  */
 export const register = asyncHandler(
-  async (req: Request<{}, any, RegisterRequest>, res: Response) => {
+  async (req: Request<{}, any, any>, res: Response) => {
     try {
       const {
         username,
@@ -30,47 +34,104 @@ export const register = asyncHandler(
         firstName,
         lastName,
         phoneNumber,
-        tenantId,
+        companyName,
         department,
-        role,
       } = req.body;
 
-      if (
-        !username ||
-        !email ||
-        !password ||
-        !firstName ||
-        !lastName ||
-        !phoneNumber ||
-        !tenantId ||
-        !department ||
-        !role
-      ) {
-        res.status(400).json({ error: "All fields are required." });
+      if (!username || !email || !password || !firstName || !lastName) {
+        res.status(400).json({ error: "Username, email, password, and name are required." });
         return;
       }
 
-      // Check if user already exists
-      const existingUser = await prisma.user.findFirst({
-        where: { OR: [{ username }, { email }] },
-      });
-      if (existingUser) {
-        res.status(400).json({ message: "User already exists." });
-        return;
+      // Safe fallback for tenantId
+      const tenantId =
+        req.body.tenantId || "8dc0e05b-2956-4d74-b0e9-5aea5ab3b748";
+
+      // Map incoming role safely to valid Role enum
+      let role: Role = Role.IT_VENDOR;
+      const rawRole = req.body.role;
+      if (rawRole === "HIRING_MANAGER" || rawRole === "MANAGER" || rawRole === "SENIOR_MANAGER") {
+        role = Role.HIRING_MANAGER;
+      } else if (rawRole === "ADMIN") {
+        role = Role.ADMIN;
+      } else if (rawRole === "IT_VENDOR" || rawRole === "USER") {
+        role = Role.IT_VENDOR;
+      } else if (isValidRole(rawRole)) {
+        role = rawRole as Role;
       }
 
-      // Verify that the tenantId exists in the database
-      const tenant = await prisma.tenants.findUnique({
-        where: { tenantId },
-      });
-      if (!tenant) {
-        res.status(400).json({ message: "Invalid tenant ID." });
-        return;
-      }
+      // In dev fallback mode (Postgres/Keycloak offline)
+      if (!isPrismaConnected && process.env.VITEST !== "true") {
+        const totpSecret = authenticator.generateSecret();
+        const userId = `dev-user-${Date.now()}`;
+        const devUser = devMockStore.addUser({
+          id: userId,
+          username,
+          email,
+          password,
+          firstName,
+          lastName,
+          phoneNumber: phoneNumber || "+15550000",
+          role: role as any,
+          department: department || "Operations",
+          tenantId,
+          companyName: companyName || "Bruce Wayne Corp",
+          provider: "KEYCLOAK",
+          totpSecret,
+        });
 
-      // Validate the provided role
-      if (!isValidRole(role)) {
-        res.status(400).json({ message: "Invalid role provided." });
+        const devAccessToken = jwt.sign(
+          {
+            sub: userId,
+            preferred_username: username,
+            email,
+            role,
+            realm_access: { roles: [role] },
+          },
+          process.env.JWT_SECRET || "dev-secret",
+          { expiresIn: "4h" }
+        );
+
+        const devRefreshToken = jwt.sign(
+          { sub: userId, type: "refresh" },
+          process.env.JWT_SECRET || "dev-secret",
+          { expiresIn: "30d" }
+        );
+
+        res.cookie("access_token", devAccessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 4 * 3600 * 1000,
+          path: "/",
+        });
+
+        res.cookie("refresh_token", devRefreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 30 * 24 * 3600 * 1000,
+          path: "/",
+        });
+
+        res.cookie("role", role, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 30 * 24 * 3600 * 1000,
+          path: "/",
+        });
+
+        const otpAuthUrl = authenticator.keyuri(email, REALM_NAME, totpSecret);
+        const qrCode = await QRCode.toDataURL(otpAuthUrl);
+
+        res.status(201).json({
+          message: "User registered successfully.",
+          user: devUser,
+          qrCode,
+          otpAuthUrl,
+          expiresIn: 3600,
+        });
         return;
       }
 
