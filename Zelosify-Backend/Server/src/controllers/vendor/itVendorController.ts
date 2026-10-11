@@ -3,6 +3,10 @@ import type { AuthenticatedRequest } from "../../types/typeIndex.js";
 import prisma from "../../config/prisma/prisma.js";
 import { createStorageService } from "../../services/storage/storageFactory.js";
 import { recommendationServiceInstance } from "../../services/ai/recommendationService.js";
+import { isPrismaConnected } from "../../utils/prisma/connectPrisma.js";
+import { devMockStore } from "../../services/devMockStore.js";
+
+const isDevFallback = () => !isPrismaConnected && process.env.VITEST !== "true";
 
 /**
  * Controller for IT Vendor Contract Hiring Operations
@@ -47,6 +51,12 @@ export async function getVendorOpenings(req: Request, res: Response): Promise<vo
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string, 10) || 10));
     const skip = (page - 1) * limit;
+
+    if (isDevFallback()) {
+      const result = devMockStore.getOpenings({ page, limit, isVendor: true });
+      res.json(result);
+      return;
+    }
 
     const [openings, total] = await Promise.all([
       prisma.opening.findMany({
@@ -120,6 +130,30 @@ export async function getVendorOpeningDetails(req: Request, res: Response): Prom
 
     if (!tenantId) {
       res.status(403).json({ message: "Tenant context is missing" });
+      return;
+    }
+
+    if (isDevFallback()) {
+      const opening = devMockStore.getOpeningById(openingId, undefined, true);
+      if (!opening) {
+        res.status(404).json({ message: "Opening not found" });
+        return;
+      }
+      res.json({
+        id: opening.id,
+        title: opening.title,
+        description: opening.description,
+        location: opening.location,
+        contractType: opening.contractType,
+        experienceMin: opening.experienceMin,
+        experienceMax: opening.experienceMax,
+        experienceRange: `${opening.experienceMin} - ${opening.experienceMax ?? "+"} years`,
+        postedDate: opening.createdAt,
+        status: opening.status,
+        hiringManagerName: "Bruce Wayne",
+        profilesCount: opening._count?.profiles || 0,
+        uploadedProfiles: [],
+      });
       return;
     }
 
@@ -199,6 +233,20 @@ export async function presignProfileUploadUrl(req: Request, res: Response): Prom
       return;
     }
 
+    const timestamp = Date.now();
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const s3Key = `${tenantId}/${openingId}/${timestamp}_${sanitizedFilename}`;
+
+    if (isDevFallback()) {
+      res.json({
+        presignedUrl: `https://zel-recruit.s3.us-east-1.amazonaws.com/${s3Key}?mock=true`,
+        s3Key,
+        filename: sanitizedFilename,
+        expiresIn: 3600,
+      });
+      return;
+    }
+
     // Validate opening belongs to tenant
     const opening = await prisma.opening.findFirst({
       where: { id: openingId, tenantId },
@@ -207,10 +255,6 @@ export async function presignProfileUploadUrl(req: Request, res: Response): Prom
       res.status(404).json({ message: "Opening not found in tenant" });
       return;
     }
-
-    const timestamp = Date.now();
-    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const s3Key = `${tenantId}/${openingId}/${timestamp}_${sanitizedFilename}`;
 
     const storageService = createStorageService();
     const presignedUrl = await storageService.getUploadURL(s3Key);
@@ -252,6 +296,30 @@ export async function submitProfiles(req: Request, res: Response): Promise<void>
 
     if (keysToSubmit.length === 0) {
       res.status(400).json({ message: "At least one s3Key is required" });
+      return;
+    }
+
+    if (isDevFallback()) {
+      const created = await devMockStore.createProfiles({
+        openingId,
+        vendorTenantId: tenantId,
+        profilesData: keysToSubmit.map((key) => {
+          const rawName = key.split("/").pop()?.replace(/^[0-9]+_/, "").replace(/\.[^.]+$/, "") || "Candidate";
+          return {
+            candidateName: rawName.replace(/_/g, " "),
+            email: `${rawName.toLowerCase()}@partner.com`,
+            experienceYears: 6,
+            skills: ["TypeScript", "React", "Node.js", "PostgreSQL"],
+            location: "Remote",
+            resumeS3Key: key,
+            resumeFileName: key.split("/").pop() || "resume.pdf",
+          };
+        }),
+      });
+      res.status(201).json({
+        message: "Profiles submitted successfully. AI recommendation initiated.",
+        profiles: created.map(sanitizeProfileForVendor),
+      });
       return;
     }
 
@@ -311,7 +379,18 @@ export async function softDeleteVendorProfile(req: Request, res: Response): Prom
       res.status(401).json({ message: "Authentication required" });
       return;
     }
+    const tenantId = user.tenant?.tenantId || (user as any).tenantId || "vendor-partner-tenant-01";
     const profileId = parseInt(req.params.id, 10);
+
+    if (isDevFallback()) {
+      const deleted = devMockStore.softDeleteProfile(profileId, tenantId);
+      if (!deleted) {
+        res.status(404).json({ message: "Profile not found" });
+        return;
+      }
+      res.json({ message: "Profile soft deleted successfully" });
+      return;
+    }
 
     const profile = await prisma.hiringProfile.findUnique({
       where: { id: profileId },

@@ -62,12 +62,20 @@ export async function setupKeycloakConfig() {
       );
       console.log("✅ Connected to Keycloak Server");
     } catch (error) {
-      console.error("❌ Failed to connect to Keycloak server:", error);
-      throw new Error("Failed to connect to Keycloak server");
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("⚠️ Keycloak server offline on localhost:8080. Running in Dev/Demo mode.");
+      } else {
+        console.error("❌ Failed to connect to Keycloak server:", error);
+        throw new Error("Failed to connect to Keycloak server");
+      }
     }
 
     return { keycloak: keycloakInstance, memoryStore };
   } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("⚠️ Continuing with memory store in Dev/Demo mode.");
+      return { keycloak: keycloakInstance || ({ middleware: () => (_: any, __: any, next: any) => next() } as any), memoryStore };
+    }
     console.error("❌ Error setting up Keycloak:", error);
     throw error;
   }

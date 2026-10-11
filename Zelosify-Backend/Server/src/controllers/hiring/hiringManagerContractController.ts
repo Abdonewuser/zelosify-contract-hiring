@@ -2,6 +2,10 @@ import type { Request, Response } from "express";
 import type { AuthenticatedRequest } from "../../types/typeIndex.js";
 import prisma from "../../config/prisma/prisma.js";
 import { createStorageService } from "../../services/storage/storageFactory.js";
+import { isPrismaConnected } from "../../utils/prisma/connectPrisma.js";
+import { devMockStore } from "../../services/devMockStore.js";
+
+const isDevFallback = () => !isPrismaConnected && process.env.VITEST !== "true";
 
 /**
  * Controller for Hiring Manager Contract Management Operations
@@ -38,6 +42,25 @@ export async function getHiringManagerOpenings(req: Request, res: Response): Pro
 
     if (!tenantId) {
       res.status(403).json({ message: "Tenant context is missing" });
+      return;
+    }
+
+    if (isDevFallback()) {
+      const result = devMockStore.getOpenings({ tenantId, isVendor: false });
+      res.json({
+        openings: result.data.map((o) => ({
+          id: o.id,
+          title: o.title,
+          description: o.description,
+          location: o.location,
+          contractType: o.contractType,
+          experienceMin: o.experienceMin,
+          experienceMax: o.experienceMax,
+          postedDate: o.createdAt,
+          status: o.status,
+          profilesCount: o._count?.profiles || 0,
+        })),
+      });
       return;
     }
 
@@ -101,6 +124,50 @@ export async function getHiringManagerOpeningProfiles(req: Request, res: Respons
 
     if (!tenantId) {
       res.status(403).json({ message: "Tenant context is missing" });
+      return;
+    }
+
+    if (isDevFallback()) {
+      const opening = devMockStore.getOpeningById(openingId, tenantId, false);
+      if (!opening) {
+        res.status(404).json({ message: "Opening not found" });
+        return;
+      }
+      const profilesResult = devMockStore.getProfilesByOpening({
+        openingId,
+        isHiringManager: true,
+      });
+      const enrichedProfiles = profilesResult.data.map((p) => ({
+        id: p.id,
+        openingId: p.openingId,
+        fileName: p.resumeFileName,
+        s3Key: p.resumeS3Key,
+        uploadedBy: "dev-vendor-id",
+        submittedAt: p.submittedAt,
+        status: p.status,
+        recommendationBadge: getRecommendationBadge(p.recommended, p.recommendationScore),
+        recommended: p.recommended,
+        score: p.recommendationScore !== null ? Number((p.recommendationScore * 100).toFixed(1)) : null,
+        confidence: p.recommendationConfidence !== null ? Number((p.recommendationConfidence * 100).toFixed(1)) : null,
+        explanation: p.recommendationReason,
+        latencyMs: p.recommendationLatencyMs,
+        version: p.recommendationVersion,
+        shortlistedAt: p.status === "SHORTLISTED" ? p.updatedAt : null,
+        rejectedAt: p.status === "REJECTED" ? p.updatedAt : null,
+      }));
+      res.json({
+        opening: {
+          id: opening.id,
+          title: opening.title,
+          description: opening.description,
+          location: opening.location,
+          contractType: opening.contractType,
+          experienceMin: opening.experienceMin,
+          experienceMax: opening.experienceMax,
+          status: opening.status,
+        },
+        profiles: enrichedProfiles,
+      });
       return;
     }
 
@@ -195,6 +262,19 @@ export async function shortlistProfile(req: Request, res: Response): Promise<voi
     }
     const profileId = parseInt(req.params.id, 10);
 
+    if (isDevFallback()) {
+      const updated = devMockStore.updateCandidateStatus(profileId, "SHORTLISTED");
+      if (!updated) {
+        res.status(404).json({ message: "Profile not found" });
+        return;
+      }
+      res.json({
+        message: "Profile shortlisted successfully",
+        profile: updated,
+      });
+      return;
+    }
+
     const profile = await prisma.hiringProfile.findUnique({
       where: { id: profileId },
       include: { opening: true },
@@ -251,6 +331,19 @@ export async function rejectProfile(req: Request, res: Response): Promise<void> 
       return;
     }
     const profileId = parseInt(req.params.id, 10);
+
+    if (isDevFallback()) {
+      const updated = devMockStore.updateCandidateStatus(profileId, "REJECTED");
+      if (!updated) {
+        res.status(404).json({ message: "Profile not found" });
+        return;
+      }
+      res.json({
+        message: "Profile rejected successfully",
+        profile: updated,
+      });
+      return;
+    }
 
     const profile = await prisma.hiringProfile.findUnique({
       where: { id: profileId },
